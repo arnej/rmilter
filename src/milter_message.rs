@@ -3,6 +3,8 @@ use std::convert::{TryFrom, TryInto};
 use crate::accept_reject_action::AcceptRejectAction;
 use crate::milter_error::MilterError;
 
+use regex::Regex;
+
 #[derive(Debug)]
 pub(crate) enum MilterMessage {
     AbortFilterChecks,
@@ -377,50 +379,88 @@ impl ResponseMessage {
 }
 
 fn decode<S: AsRef<str>>(s: S) -> String {
+    lazy_static! {
+        static ref REGEX: Regex =
+            Regex::new(r"(?P<start>=\?)(?P<charset>.*)\?(?P<transfer_encoding>.*)\?(?P<encoded_value>.*)(?P<end>\?=)")
+                .expect("Can't compile regex for decoding");
+    }
+
     let mut res = String::with_capacity(s.as_ref().len());
+    let mut last_end = 0;
 
-    for split in s.as_ref().split("=?") {
-        if let Some(encoded_end) = split.find("?=") {
-            let encoded = &split[..encoded_end];
-            let parts: Vec<&str> = encoded.split('?').collect();
-
-            if parts.len() == 3 {
-                if let Some(charset) =
-                    charset::Charset::for_label_no_replacement(parts[0].as_bytes())
-                {
-                    let transfer_encoding = parts[1];
-                    let encoded_value = parts[2];
-
-                    let decoded = match transfer_encoding {
-                        "b" | "B" => base64::decode(encoded_value)
-                            .unwrap_or_else(|_| encoded.as_bytes().to_vec()),
-                        "q" | "Q" => quoted_printable::decode(
-                            encoded_value.replace("_", " "),
-                            quoted_printable::ParseMode::Robust,
-                        )
-                        .unwrap_or_else(|_| encoded.as_bytes().to_vec()),
-                        _ => encoded_value.as_bytes().to_vec(),
-                    };
-
-                    let (decoded, _) = charset.decode_without_bom_handling(&decoded);
-
-                    res.push_str(&decoded);
-                } else {
-                    res.push_str(split);
-                }
+    for capture in REGEX.captures_iter(s.as_ref()) {
+        if let Some(decoded_string) = decode_captures(capture) {
+            if decoded_string.start > last_end {
+                let rest: String = s
+                    .as_ref()
+                    .chars()
+                    .skip(last_end)
+                    .take(decoded_string.start - last_end)
+                    .collect();
+                res.push_str(&rest);
             }
 
-            // Append rest (if any)
-            // println!("Encoded_end: {}, split.len(): {}", encoded_end, split.len());
-            if encoded_end + 2 < split.len() {
-                res.push_str(&split[encoded_end + 2..]);
-            }
-        } else {
-            res.push_str(split);
+            res.push_str(&decoded_string.value);
+            last_end = decoded_string.end;
         }
     }
 
+    // Append rest (if any)
+    let input_len = s.as_ref().chars().count();
+    if input_len > last_end {
+        let rest: String = s
+            .as_ref()
+            .chars()
+            .skip(last_end)
+            .take(input_len - last_end)
+            .collect();
+        res.push_str(&rest);
+    }
+
     res
+}
+
+fn decode_captures(c: regex::Captures) -> Option<DecodedString> {
+    let start = c.name("start")?.start();
+    let end = c.name("end")?.end();
+    let charset = c.name("charset")?;
+
+    if let Some(charset) = charset::Charset::for_label_no_replacement(charset.as_str().as_bytes()) {
+        let transfer_encoding = c.name("transfer_encoding")?.as_str();
+        let encoded_value = c.name("encoded_value")?.as_str();
+
+        let decoded = match transfer_encoding {
+            "b" | "B" => Some(base64::decode(encoded_value).ok()?),
+            "q" | "Q" => Some(
+                quoted_printable::decode(
+                    encoded_value.replace("_", " "),
+                    quoted_printable::ParseMode::Robust,
+                )
+                .ok()?,
+            ),
+            _ => None,
+        };
+
+        if let Some(decoded) = decoded {
+            let (decoded, _) = charset.decode_without_bom_handling(&decoded);
+
+            Some(DecodedString {
+                start,
+                end,
+                value: decoded.to_string(),
+            })
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
+struct DecodedString {
+    pub start: usize,
+    pub end: usize,
+    pub value: String,
 }
 
 #[cfg(test)]
@@ -474,6 +514,17 @@ mod tests {
 
     #[test]
     fn decode_utf8_base64() {
+        // Taken from an actual spam mail which contained padding chars
+        // data
+        let input = "=?utf-8?B?IkjDtmhsZSBkZXIgTMO2d2VuIiBTeXN0ZW0gbWFjaHQgRGV1dHNjaGUgQsO8cmdlciByZWljaCE=?=";
+        let res = decode(input);
+        let comp = "\"Höhle der Löwen\" System macht Deutsche Bürger reich!";
+
+        assert_eq!(comp, res);
+    }
+
+    #[test]
+    fn decode_utf8_base64_with_not_encoded() {
         // Taken from an actual spam mail and added 'not encoded' to test that we keep non-encoded
         // data
         let input = "not encoded=?utf-8?B?4oCeSMO2aGxlIGRlciBMw7Z3ZW7igJwgU3lzdGVtIG1hY2h0IERldXRzY2hlIELDvHJnZXIgcmVpY2gh?=not encoded";
@@ -481,6 +532,16 @@ mod tests {
         let comp = "not encoded„Höhle der Löwen“ System macht Deutsche Bürger reich!not encoded";
 
         assert_eq!(comp, res);
+    }
+
+    /// Used for testing that we keep the original input with broken encoding
+    #[test]
+    fn decode_utf8_base64_broken_encoding() {
+        let input =
+            "not encoded=?utf-8?B?w7Z3ZW7igJ2h0IERldXRzY2hlIELDvHJnZXIgcmVpY2gh?=not encoded";
+        let res = decode(input);
+
+        assert_eq!(input, res);
     }
 
     #[test]

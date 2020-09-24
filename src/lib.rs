@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate lazy_static;
+
 pub mod accept_reject_action;
 pub mod message_handler;
 pub mod milter;

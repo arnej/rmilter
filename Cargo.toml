@@ -9,4 +9,6 @@ edition = "2018"
 [dependencies]
 base64 = "0.12"
 charset = "0.1"
+lazy_static = "1.4"
 quoted_printable = "0.4"
+regex = "1.3"
