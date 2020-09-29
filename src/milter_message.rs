@@ -170,16 +170,23 @@ impl TryFrom<&[u8]> for MilterMessage {
     }
 }
 
+/// A macro defined by the MTA.
 #[derive(Debug)]
 pub struct MilterMacro {
+    /// The name of the macro.
     name: String,
+    /// The macro value.
     value: String,
 }
 
+/// The protocol family used (currently only Inet4 and Inet6 are supported).
 #[derive(Debug)]
 pub enum ProtocolFamily {
+    /// Unix socket.
     UnixSocket,
+    /// IPv4
     Inet4,
+    /// IPv6
     Inet6,
 }
 
@@ -301,6 +308,15 @@ impl From<&MilterProtocol> for Vec<u8> {
 }
 
 impl MilterProtocol {
+    /// Creates a new instance of MilterProtocol.
+    ///
+    /// - `no_connect` defines if SMFIC_CONNECT messages should be transferred.
+    /// - `no_helo` defines if SMFIC_HELO messages should be transferred.
+    /// - `no_mail` defines if SMFIC_MAIL messages should be transferred.
+    /// - `no_recipient` defines if SMFIC_RCPT messages should be transferred.
+    /// - `no_body` defines if SMFIC_BODY messages should be transferred.
+    /// - `no_header` defines if SMFIC_HEADER messages should be transferred.
+    /// - `no_eoh` defines if SMFIC_EOH messages should be transferred.
     pub fn new(
         no_connect: bool,
         no_helo: bool,
