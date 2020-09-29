@@ -29,6 +29,8 @@ Example
  ```
 use rmilter::accept_reject_action::AcceptRejectAction;
 use rmilter::message_handler::MessageHandler;
+use rmilter::milter_message::MilterProtocol;
+use rmilter::milter_builder::MilterBuilder;
 
 struct MyMessageHandler {}
 
@@ -40,7 +42,7 @@ impl MessageHandler for MyMessageHandler {
 }
 
 fn main() {
-    let mut handler = MyHandler { config };
+    let mut handler = MyMessageHandler {};
     let protocol = MilterProtocol::new(false, false, false, false, false, false, false);
     let mut milter = MilterBuilder::new(&mut handler)
         .set_protocol(protocol)
