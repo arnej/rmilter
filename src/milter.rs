@@ -6,6 +6,9 @@ use crate::message_handler::MessageHandler;
 use crate::milter_error::MilterError;
 use crate::milter_message::{MilterMessage, MilterProtocol, ResponseMessage};
 
+/// This is the main struct that opens the milter connection.
+///
+/// Also holds the `MessageHandler`.
 pub struct Milter<'a> {
     message_handler: &'a mut dyn MessageHandler,
     protocol: Option<MilterProtocol>,
@@ -125,6 +128,9 @@ impl<'a> Milter<'a> {
         }
     }
 
+    /// Opens the connection to the MTA service.
+    ///
+    /// - `address` defines the socket address of the MTA.
     pub fn run<S: ToSocketAddrs>(&'a mut self, address: S) -> Result<(), MilterError> {
         let listener = TcpListener::bind(address)?;
 

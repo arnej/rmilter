@@ -1,7 +1,10 @@
 use crate::accept_reject_action::AcceptRejectAction;
 use crate::milter_message::{MilterMacro, ProtocolFamily};
 
-// TODO: Overview
+/// Implement this trait to define the behavior of your milter application.
+///
+/// All methods have a default implementation which returns AcceptRejectAction::Continue. Overwrite
+/// any of these methods to implement the desired behavior.
 pub trait MessageHandler {
     /// Milter checks for the current message have been aborted (SMFIC_ABORT).
     ///
