@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
+/// Errors defined in the `rmilter` crate
 #[derive(Debug)]
 pub enum MilterError {
     /// An incomplete message was received by rmilter (e.g. missing non-optional fields)
