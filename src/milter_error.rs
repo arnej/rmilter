@@ -3,11 +3,17 @@ use std::fmt::{Display, Formatter};
 
 #[derive(Debug)]
 pub enum MilterError {
+    /// An incomplete message was received by rmilter (e.g. missing non-optional fields)
     IncompleteMessage,
+    /// An `std::io::Error` occured
     IoError(std::io::Error),
+    /// A message was received by rmilter that doesn't contain a message identifier
     MissingMessageIdentifier,
+    /// An `std::num::TryFromIntError` occured
     TryFromIntError(std::num::TryFromIntError),
+    /// An `std::num::TryFromSliceError` occured
     TryFromSliceError(std::array::TryFromSliceError),
+    /// A message with an unknown message identifier was received by rmilter
     UnknowMessageIdentifier(char),
 }
 
