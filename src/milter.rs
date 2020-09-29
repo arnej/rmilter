@@ -8,6 +8,7 @@ use crate::milter_message::{MilterMessage, MilterProtocol, ResponseMessage};
 
 pub struct Milter<'a> {
     message_handler: &'a mut dyn MessageHandler,
+    protocol: Option<MilterProtocol>,
 }
 
 impl<'a> Milter<'a> {
@@ -74,7 +75,7 @@ impl<'a> Milter<'a> {
                         let response_msg = ResponseMessage::option_negotiation(
                             version,
                             actions,
-                            MilterProtocol::new(false, false, false, false, false, false, false),
+                            self.protocol.as_ref().unwrap_or(&MilterProtocol::default()),
                         );
 
                         self.send_response(s, response_msg)?;
@@ -114,8 +115,14 @@ impl<'a> Milter<'a> {
         Ok(keep_open)
     }
 
-    pub(crate) fn new(message_handler: &'a mut dyn MessageHandler) -> Self {
-        Self { message_handler }
+    pub(crate) fn new(
+        message_handler: &'a mut dyn MessageHandler,
+        protocol: Option<MilterProtocol>,
+    ) -> Self {
+        Self {
+            message_handler,
+            protocol,
+        }
     }
 
     pub fn run<S: ToSocketAddrs>(&'a mut self, address: S) -> Result<(), MilterError> {

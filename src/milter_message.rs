@@ -243,8 +243,9 @@ impl MilterActions {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub(crate) struct MilterProtocol {
+/// Used for defining which message parts should be excluded for the Milter
+#[derive(Clone, Debug, PartialEq)]
+pub struct MilterProtocol {
     no_connect: bool,
     no_helo: bool,
     no_mail: bool,
@@ -252,6 +253,20 @@ pub(crate) struct MilterProtocol {
     no_body: bool,
     no_header: bool,
     no_eoh: bool,
+}
+
+impl Default for MilterProtocol {
+    fn default() -> Self {
+        Self {
+            no_connect: false,
+            no_helo: false,
+            no_mail: false,
+            no_recipient: false,
+            no_body: false,
+            no_header: false,
+            no_eoh: false,
+        }
+    }
 }
 
 impl From<&[u8; 4]> for MilterProtocol {
@@ -269,8 +284,8 @@ impl From<&[u8; 4]> for MilterProtocol {
     }
 }
 
-impl From<MilterProtocol> for Vec<u8> {
-    fn from(m: MilterProtocol) -> Self {
+impl From<&MilterProtocol> for Vec<u8> {
+    fn from(m: &MilterProtocol) -> Self {
         let mut val: u32 = 0;
 
         val |= u32::from(m.no_connect);
@@ -286,7 +301,7 @@ impl From<MilterProtocol> for Vec<u8> {
 }
 
 impl MilterProtocol {
-    pub(crate) fn new(
+    pub fn new(
         no_connect: bool,
         no_helo: bool,
         no_mail: bool,
@@ -359,7 +374,7 @@ impl ResponseMessage {
     pub(crate) fn option_negotiation(
         version: u32,
         actions: MilterActions,
-        protocol: MilterProtocol,
+        protocol: &MilterProtocol,
     ) -> Self {
         // OPTNEG buffer length is always 17
         let mut buf = Vec::with_capacity(17);
