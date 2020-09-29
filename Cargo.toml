@@ -6,7 +6,7 @@ license = "Apache-2.0"
 homepage = "https://github.com/arnej/rmilter"
 repository = "https://github.com/arnej/rmilter.git"
 readme = "README.md"
-categories = ["API bindings", "Email"]
+categories = ["api-bindings", "email"]
 keywords = ["email", "smtp", "sendmail", "postfix", "milter"]
 description = """
 A rust-only crate for connecting and using milter functionality.
