@@ -2,6 +2,15 @@
 name = "rmilter"
 version = "0.1.0"
 authors = ["Arne Janbu <ajanbu@gmx.de>"]
+license = "Apache-2.0"
+homepage = "https://github.com/arnej/rmilter"
+repository = "https://github.com/arnej/rmilter.git"
+readme = "README.md"
+categories = ["API bindings", "Email"]
+keywords = ["email", "smtp", "sendmail", "postfix", "milter"]
+description = """
+A rust-only crate for connecting and using milter functionality.
+"""
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
