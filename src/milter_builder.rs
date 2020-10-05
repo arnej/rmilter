@@ -90,7 +90,7 @@ impl<'a> MilterBuilder<'a> {
     /// impl MessageHandler for MyHandler {}
     ///
     /// let mut handler = MyHandler {};
-    /// let protocol = MilterProtocol::new(false, true, false, false, true, false, false);
+    /// let protocol = MilterProtocol::default();
     ///
     /// let mut milter = MilterBuilder::new(&mut handler)
     ///     .set_protocol(protocol)

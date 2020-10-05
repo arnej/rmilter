@@ -43,7 +43,7 @@
 //!
 //! fn main() {
 //!     let mut handler = MyMessageHandler {};
-//!     let protocol = MilterProtocol::new(false, false, false, false, false, false, false);
+//!     let protocol = MilterProtocol::default();
 //!     let mut milter = MilterBuilder::new(&mut handler)
 //!         .set_protocol(protocol)
 //!         .build();

@@ -307,37 +307,6 @@ impl From<&MilterProtocol> for Vec<u8> {
     }
 }
 
-impl MilterProtocol {
-    /// Creates a new instance of MilterProtocol.
-    ///
-    /// - `no_connect` defines if SMFIC_CONNECT messages should be transferred.
-    /// - `no_helo` defines if SMFIC_HELO messages should be transferred.
-    /// - `no_mail` defines if SMFIC_MAIL messages should be transferred.
-    /// - `no_recipient` defines if SMFIC_RCPT messages should be transferred.
-    /// - `no_body` defines if SMFIC_BODY messages should be transferred.
-    /// - `no_header` defines if SMFIC_HEADER messages should be transferred.
-    /// - `no_eoh` defines if SMFIC_EOH messages should be transferred.
-    pub fn new(
-        no_connect: bool,
-        no_helo: bool,
-        no_mail: bool,
-        no_recipient: bool,
-        no_body: bool,
-        no_header: bool,
-        no_eoh: bool,
-    ) -> Self {
-        MilterProtocol {
-            no_connect,
-            no_helo,
-            no_mail,
-            no_recipient,
-            no_body,
-            no_header,
-            no_eoh,
-        }
-    }
-}
-
 #[derive(Debug)]
 pub(crate) struct ResponseMessage {
     content: Vec<u8>,
@@ -520,7 +489,16 @@ mod tests {
     fn create_milter_protocol_no_mail() {
         let x: [u8; 4] = [0, 0, 0, 4];
         let res = MilterProtocol::from(&x);
-        let comp = MilterProtocol::new(false, false, true, false, false, false, false);
+        // let comp = MilterProtocol::new(false, false, true, false, false, false, false);
+        let comp = MilterProtocol {
+            no_body: false,
+            no_connect: false,
+            no_eoh: false,
+            no_header: false,
+            no_helo: false,
+            no_mail: true,
+            no_recipient: false,
+        };
 
         assert_eq!(comp, res);
     }
@@ -529,7 +507,16 @@ mod tests {
     fn create_milter_protocol_no_body() {
         let x: [u8; 4] = [0, 0, 0, 16];
         let res = MilterProtocol::from(&x);
-        let comp = MilterProtocol::new(false, false, false, false, true, false, false);
+        // let comp = MilterProtocol::new(false, false, false, false, true, false, false);
+        let comp = MilterProtocol {
+            no_body: true,
+            no_connect: false,
+            no_eoh: false,
+            no_header: false,
+            no_helo: false,
+            no_mail: false,
+            no_recipient: false,
+        };
 
         assert_eq!(comp, res);
     }
@@ -538,7 +525,16 @@ mod tests {
     fn create_milter_protocol_no_connect_and_header() {
         let x: [u8; 4] = [0, 0, 0, 33];
         let res = MilterProtocol::from(&x);
-        let comp = MilterProtocol::new(true, false, false, false, false, true, false);
+        // let comp = MilterProtocol::new(true, false, false, false, false, true, false);
+        let comp = MilterProtocol {
+            no_body: false,
+            no_connect: true,
+            no_eoh: false,
+            no_header: true,
+            no_helo: false,
+            no_mail: false,
+            no_recipient: false,
+        };
 
         assert_eq!(comp, res);
     }
