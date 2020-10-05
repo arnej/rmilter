@@ -61,6 +61,10 @@
 //! **rmilter** can be used to connect to MTA services and receive messages. It is also possible to easily accept or reject a mail (using AcceptRejectAction).
 //!
 //! Currently, functionality for manipulating the mail (add header, recipients and so on) is not yet supported, but will be in a future release.
+
+// Set proper hmtl root for docs.rs
+#![doc(html_root_url = "https://docs.rs/rmilter/0.1.0")]
+
 #[macro_use]
 extern crate lazy_static;
 
