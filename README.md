@@ -26,7 +26,7 @@ rmilter = "0.1"
 Example
 -------
 
- ```
+ ```rust
 use rmilter::accept_reject_action::AcceptRejectAction;
 use rmilter::message_handler::MessageHandler;
 use rmilter::milter_message::MilterProtocol;
