@@ -18,16 +18,8 @@ impl<'a> Milter<'a> {
     fn handle_message(&mut self, s: &mut TcpStream, buffer: &[u8]) -> Result<bool, MilterError> {
         let mut keep_open = true;
 
-        // print!("Raw bytes: ");
-        // for b in buffer.iter() {
-        //     print!("{} ", b);
-        // }
-        // println!();
-
         match MilterMessage::try_from(buffer) {
             Ok(message) => {
-                // println!("Code: {}, Data: {:?}", char::from(buffer[0]), message);
-
                 match message {
                     MilterMessage::AbortFilterChecks => self.message_handler.abort_filter_checks(),
                     MilterMessage::BodyChunk { value } => {
@@ -73,8 +65,6 @@ impl<'a> Milter<'a> {
                         actions,
                         protocol: _,
                     } => {
-                        // TODO: Create OptionNegotiation by checking for configured handlers (or
-                        // let the user specify)
                         let response_msg = ResponseMessage::option_negotiation(
                             version,
                             actions,
@@ -93,29 +83,68 @@ impl<'a> Milter<'a> {
                 };
             }
             Err(_e) => {
-                // println!("Error parsing message: {}", e);
-
-                // print!("raw bytes: ");
-                // for b in buffer.iter() {
-                //     print!("{} ", b);
-                // }
-                // println!();
-
                 let mut response = Vec::with_capacity(5);
                 response.append(&mut u32::to_be_bytes(1).to_vec());
                 response.push(b'c');
-
-                // println!("Response length: {}", response.len());
-                // for b in response.iter() {
-                //     print!("{} ", b);
-                // }
-                // println!();
 
                 s.write_all(&response)?;
             }
         }
 
         Ok(keep_open)
+    }
+
+    fn handle_stream(&mut self, mut stream: TcpStream) -> Result<(), MilterError> {
+        let u32_size = std::mem::size_of::<u32>();
+        let mut buffer = [0; 128];
+        let mut collected_bytes = Vec::new();
+
+        loop {
+            let mut keep_open = true;
+
+            match stream.read(&mut buffer) {
+                Ok(0) => {
+                    println!("Closing connection");
+                    break;
+                }
+                Ok(len) => {
+                    // First, add everything read to collected_bytes
+                    collected_bytes.extend_from_slice(&buffer[..len]);
+
+                    if collected_bytes.len() >= u32_size {
+                        let mut msg_len: usize =
+                            u32::from_be_bytes(collected_bytes[..u32_size].try_into()?)
+                                .try_into()?;
+
+                        while collected_bytes.len() >= u32_size + msg_len {
+                            // Only remove first 4 bytes when the complete message is available
+                            collected_bytes.drain(..u32_size);
+                            let msg: Vec<u8> = collected_bytes.drain(..msg_len).collect();
+
+                            if !self.handle_message(&mut stream, &msg)? {
+                                keep_open = false;
+                                break;
+                            }
+
+                            if collected_bytes.len() >= std::mem::size_of::<u32>() {
+                                msg_len =
+                                    u32::from_be_bytes(collected_bytes[..u32_size].try_into()?)
+                                        .try_into()?;
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Error while receiving data: {}", e);
+                    break;
+                }
+            }
+
+            if !keep_open {
+                break;
+            }
+        }
+        Ok(())
     }
 
     pub(crate) fn new(
@@ -135,33 +164,7 @@ impl<'a> Milter<'a> {
         let listener = TcpListener::bind(address)?;
 
         for stream in listener.incoming() {
-            match stream {
-                Ok(mut s) => {
-                    let mut keep_open = true;
-
-                    while keep_open {
-                        let mut buffer = [0; std::mem::size_of::<u32>()];
-                        let mut len = s.peek(&mut buffer)?;
-
-                        // Only start reading when at least the message size (4 bytes) is available
-                        if len >= std::mem::size_of::<u32>() {
-                            len = s.read(&mut buffer)?;
-
-                            if len > 0 {
-                                let msg_len = u32::from_be_bytes(buffer);
-
-                                // println!("Message length: {}", msg_len);
-
-                                let mut buffer = vec![0; msg_len.try_into()?];
-                                s.read_exact(&mut buffer)?;
-
-                                keep_open = self.handle_message(&mut s, &buffer)?;
-                            }
-                        }
-                    }
-                }
-                Err(e) => eprintln!("Error: {}", e),
-            }
+            self.handle_stream(stream?)?;
         }
 
         Ok(())
@@ -173,15 +176,7 @@ impl<'a> Milter<'a> {
         response_msg: R,
     ) -> Result<(), MilterError> {
         let response_msg = response_msg.into();
-        // println!("Sending response: {:?}", response_msg);
-
         let response = response_msg.get_content();
-
-        // println!("Response length: {}", response.len());
-        // for b in response.iter() {
-        //     print!("{} ", b);
-        // }
-        // println!();
 
         s.write_all(&response)?;
         s.flush()?;
