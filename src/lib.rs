@@ -26,7 +26,7 @@
 //! Example
 //! -------
 //!
-//!  ```
+//!  ```no_run
 //! use rmilter::accept_reject_action::AcceptRejectAction;
 //! use rmilter::message_handler::MessageHandler;
 //! use rmilter::milter_message::MilterProtocol;
@@ -48,10 +48,9 @@
 //!         .set_protocol(protocol)
 //!         .build();
 //!
-//!     // Uncomment this to run the milter (not done here due to doc tests)
-//!     //milter
-//!     //    .run("127.0.0.1:31337")
-//!     //    .expect("Failed to start milter");
+//!     milter
+//!         .run("127.0.0.1:31337")
+//!         .expect("Failed to start milter");
 //! }
 //! ```
 //!
