@@ -17,6 +17,7 @@ edition = "2018"
 
 [dependencies]
 base64 = "0.13"
+bitflags = "1.2"
 charset = "0.1"
 lazy_static = "1.4"
 quoted_printable = "0.4"

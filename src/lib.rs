@@ -65,6 +65,9 @@
 #![doc(html_root_url = "https://docs.rs/rmilter/0.1.0")]
 
 #[macro_use]
+extern crate bitflags;
+
+#[macro_use]
 extern crate lazy_static;
 
 pub mod accept_reject_action;

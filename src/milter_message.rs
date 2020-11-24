@@ -144,8 +144,12 @@ impl TryFrom<&[u8]> for MilterMessage {
             [b'N'] => Ok(MilterMessage::EndOfHeader),
             [b'O', rest @ ..] if rest.len() == 12 => Ok(MilterMessage::OptionNegotiation {
                 version: u32::from_be_bytes(rest[0..=3].try_into()?),
-                actions: MilterActions::from(&rest[4..=7].try_into()?),
-                protocol: MilterProtocol::from(&rest[8..=11].try_into()?),
+                actions: MilterActions::from_bits_truncate(u32::from_be_bytes(
+                    rest[4..=7].try_into()?,
+                )),
+                protocol: MilterProtocol::from_bits_truncate(u32::from_be_bytes(
+                    rest[8..=11].try_into()?,
+                )),
             }),
             [b'Q'] => Ok(MilterMessage::QuitCommunication),
             [b'R', rest @ ..] => {
@@ -190,120 +194,28 @@ pub enum ProtocolFamily {
     Inet6,
 }
 
-#[derive(Debug, PartialEq)]
-pub(crate) struct MilterActions {
-    add_headers: bool,
-    change_body: bool,
-    add_recipients: bool,
-    remove_recipients: bool,
-    change_headers: bool,
-    quarantine: bool,
-}
-
-impl From<&[u8; 4]> for MilterActions {
-    fn from(val: &[u8; 4]) -> Self {
-        let v = u32::from_be_bytes(*val);
-        Self {
-            add_headers: v & (1 << 0) != 0,
-            change_body: v & (1 << 1) != 0,
-            add_recipients: v & (1 << 2) != 0,
-            remove_recipients: v & (1 << 3) != 0,
-            change_headers: v & (1 << 4) != 0,
-            quarantine: v & (1 << 5) != 0,
-        }
+bitflags! {
+    pub(crate) struct MilterActions: u32 {
+        const ADD_HEADERS = 1;
+        const CHANGE_BODY = 1 << 1;
+        const ADD_RECIPIENTS = 1 << 2;
+        const REMOVE_RECIPIENTS = 1 << 3;
+        const CHANGE_HEADERS = 1 << 4;
+        const QUARANTINE = 1 << 5;
     }
 }
 
-impl From<MilterActions> for Vec<u8> {
-    fn from(m: MilterActions) -> Self {
-        let mut val: u32 = 0;
-
-        val |= u32::from(m.add_headers);
-        val |= u32::from(m.change_body) << 1;
-        val |= u32::from(m.add_recipients) << 2;
-        val |= u32::from(m.remove_recipients) << 3;
-        val |= u32::from(m.change_headers) << 4;
-        val |= u32::from(m.quarantine) << 5;
-
-        val.to_be_bytes().into()
-    }
-}
-
-impl MilterActions {
-    #[cfg(test)]
-    fn new(
-        add_headers: bool,
-        change_body: bool,
-        add_recipients: bool,
-        remove_recipients: bool,
-        change_headers: bool,
-        quarantine: bool,
-    ) -> Self {
-        MilterActions {
-            add_headers,
-            change_body,
-            add_recipients,
-            remove_recipients,
-            change_headers,
-            quarantine,
-        }
-    }
-}
-
-/// Used for defining which message parts should be excluded for the Milter
-#[derive(Clone, Debug, PartialEq)]
-pub struct MilterProtocol {
-    no_connect: bool,
-    no_helo: bool,
-    no_mail: bool,
-    no_recipient: bool,
-    no_body: bool,
-    no_header: bool,
-    no_eoh: bool,
-}
-
-impl Default for MilterProtocol {
-    fn default() -> Self {
-        Self {
-            no_connect: false,
-            no_helo: false,
-            no_mail: false,
-            no_recipient: false,
-            no_body: false,
-            no_header: false,
-            no_eoh: false,
-        }
-    }
-}
-
-impl From<&[u8; 4]> for MilterProtocol {
-    fn from(val: &[u8; 4]) -> Self {
-        let v = u32::from_be_bytes(*val);
-        Self {
-            no_connect: v & (1 << 0) != 0,
-            no_helo: v & (1 << 1) != 0,
-            no_mail: v & (1 << 2) != 0,
-            no_recipient: v & (1 << 3) != 0,
-            no_body: v & (1 << 4) != 0,
-            no_header: v & (1 << 5) != 0,
-            no_eoh: v & (1 << 6) != 0,
-        }
-    }
-}
-
-impl From<&MilterProtocol> for Vec<u8> {
-    fn from(m: &MilterProtocol) -> Self {
-        let mut val: u32 = 0;
-
-        val |= u32::from(m.no_connect);
-        val |= u32::from(m.no_helo) << 1;
-        val |= u32::from(m.no_mail) << 2;
-        val |= u32::from(m.no_recipient) << 3;
-        val |= u32::from(m.no_body) << 4;
-        val |= u32::from(m.no_header) << 5;
-        val |= u32::from(m.no_eoh) << 6;
-
-        val.to_be_bytes().into()
+bitflags! {
+    /// Used for defining which message parts should be excluded for the Milter
+    #[derive(Default)]
+    pub struct MilterProtocol: u32 {
+        const NO_CONNECT = 1;
+        const NO_HELO = 1 << 1;
+        const NO_MAIL = 1 << 2;
+        const NO_RECIPIENT = 1 << 3;
+        const NO_BODY = 1 << 4;
+        const NO_HEADER = 1 << 5;
+        const NO_EOH = 1 << 6;
     }
 }
 
@@ -371,8 +283,8 @@ impl ResponseMessage {
         buf.push(b'O');
 
         buf.append(&mut version.to_be_bytes().to_vec());
-        buf.append(&mut actions.into());
-        buf.append(&mut protocol.into());
+        buf.append(&mut actions.bits().to_be_bytes().to_vec());
+        buf.append(&mut protocol.bits.to_be_bytes().to_vec());
 
         Self { content: buf }
     }
@@ -470,8 +382,8 @@ mod tests {
     #[test]
     fn create_milter_actions_add_recipients() {
         let x: [u8; 4] = [0, 0, 0, 4];
-        let res = MilterActions::from(&x);
-        let comp = MilterActions::new(false, false, true, false, false, false);
+        let res = MilterActions::from_bits_truncate(u32::from_be_bytes(x));
+        let comp = MilterActions::ADD_RECIPIENTS;
 
         assert_eq!(comp, res);
     }
@@ -479,8 +391,8 @@ mod tests {
     #[test]
     fn create_milter_actions_add_headers_and_quarantine() {
         let x: [u8; 4] = [0, 0, 0, 33];
-        let res = MilterActions::from(&x);
-        let comp = MilterActions::new(true, false, false, false, false, true);
+        let res = MilterActions::from_bits_truncate(u32::from_be_bytes(x));
+        let comp = MilterActions::ADD_HEADERS | MilterActions::QUARANTINE;
 
         assert_eq!(comp, res);
     }
@@ -488,17 +400,8 @@ mod tests {
     #[test]
     fn create_milter_protocol_no_mail() {
         let x: [u8; 4] = [0, 0, 0, 4];
-        let res = MilterProtocol::from(&x);
-        // let comp = MilterProtocol::new(false, false, true, false, false, false, false);
-        let comp = MilterProtocol {
-            no_body: false,
-            no_connect: false,
-            no_eoh: false,
-            no_header: false,
-            no_helo: false,
-            no_mail: true,
-            no_recipient: false,
-        };
+        let res = MilterProtocol::from_bits_truncate(u32::from_be_bytes(x));
+        let comp = MilterProtocol::NO_MAIL;
 
         assert_eq!(comp, res);
     }
@@ -506,17 +409,8 @@ mod tests {
     #[test]
     fn create_milter_protocol_no_body() {
         let x: [u8; 4] = [0, 0, 0, 16];
-        let res = MilterProtocol::from(&x);
-        // let comp = MilterProtocol::new(false, false, false, false, true, false, false);
-        let comp = MilterProtocol {
-            no_body: true,
-            no_connect: false,
-            no_eoh: false,
-            no_header: false,
-            no_helo: false,
-            no_mail: false,
-            no_recipient: false,
-        };
+        let res = MilterProtocol::from_bits_truncate(u32::from_be_bytes(x));
+        let comp = MilterProtocol::NO_BODY;
 
         assert_eq!(comp, res);
     }
@@ -524,17 +418,8 @@ mod tests {
     #[test]
     fn create_milter_protocol_no_connect_and_header() {
         let x: [u8; 4] = [0, 0, 0, 33];
-        let res = MilterProtocol::from(&x);
-        // let comp = MilterProtocol::new(true, false, false, false, false, true, false);
-        let comp = MilterProtocol {
-            no_body: false,
-            no_connect: true,
-            no_eoh: false,
-            no_header: true,
-            no_helo: false,
-            no_mail: false,
-            no_recipient: false,
-        };
+        let res = MilterProtocol::from_bits_truncate(u32::from_be_bytes(x));
+        let comp = MilterProtocol::NO_CONNECT | MilterProtocol::NO_HEADER;
 
         assert_eq!(comp, res);
     }
@@ -542,7 +427,6 @@ mod tests {
     #[test]
     fn decode_utf8_base64() {
         // Taken from an actual spam mail which contained padding chars
-        // data
         let input = "=?utf-8?B?IkjDtmhsZSBkZXIgTMO2d2VuIiBTeXN0ZW0gbWFjaHQgRGV1dHNjaGUgQsO8cmdlciByZWljaCE=?=";
         let res = decode(input);
         let comp = "\"Höhle der Löwen\" System macht Deutsche Bürger reich!";
